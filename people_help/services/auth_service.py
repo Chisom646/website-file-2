@@ -1,6 +1,7 @@
 from datetime import timedelta
 from typing import Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from ..models.user import User
 from ..models.role import Role
 from ..models.user_role import UserRole

@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "people-help"
+version = "1.0.0"
+description = "Mental health and abuse survivor support community platform"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "People Help The People", email = "support@peoplehelp.example.com"}
+]
+keywords = ["mental-health", "support", "community", "fastapi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Healthcare Industry",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "fastapi>=0.104.1,<1.0.0",
+    "uvicorn[standard]>=0.24.0,<1.0.0",
+    "sqlmodel>=0.0.14,<1.0.0",
+    "asyncpg>=0.29.0,<1.0.0",
+    "python-jose[cryptography]>=3.3.0,<4.0.0",
+    "passlib[bcrypt]>=1.7.4,<2.0.0",
+    "python-multipart>=0.0.6,<1.0.0",
+    "pydantic[email]>=2.4.2,<3.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.24.0",
+]
+
+[project.scripts]
+people-help = "people_help.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/people-help"
+Issues = "https://github.com/yourusername/people-help/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["people_help*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+people_help = ["*.html", "*.css", "*.js", "images/*"]
