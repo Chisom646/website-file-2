@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sign Up</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="auth.js"></script>
+</head>
+
+<body>
+  <div class="container">
+    <div class="card" style="max-width:450px; margin:auto;">
+
+      <h2>Create Account</h2>
+      <p>Join the community and start connecting.</p>
+
+      <form id="signupForm">
+        <input class="input" type="text" id="name" name="name" placeholder="Full Name" required>
+        <div id="nameError" class="error-message"></div>
+
+        <input class="input" type="text" id="username" name="username" placeholder="Username" required>
+        <div id="usernameError" class="error-message"></div>
+
+        <input class="input" type="email" id="email" name="email" placeholder="Email" required>
+        <div id="emailError" class="error-message"></div>
+
+        <input class="input" type="password" id="password" name="password" placeholder="Password" required>
+        <div id="passwordByteCounter" class="byte-counter" style="font-size: 12px; color: #666; margin-top: 5px;">
+          0/72 bytes
+        </div>
+        <div id="passwordError" class="error-message"></div>
+
+        <input class="input" type="tel" id="phone_number" name="phone_number" placeholder="Phone Number" required>
+        <div id="phoneError" class="error-message"></div>
+
+        <input class="input" type="date" id="birth" name="birth" required>
+        <div id="birthError" class="error-message"></div>
+
+        <select class="input" id="sex" name="sex" required>
+          <option value="">Select Gender</option>
+          <option value="MALE">Male</option>
+          <option value="FEMALE">Female</option>
+        </select>
+        <div id="sexError" class="error-message"></div>
+
+        <button type="submit" class="btn btn-green" style="width:100%; margin-top:15px;">Create Account</button>
+      </form>
+
+      <div id="generalError" class="error-message" style="margin-top: 15px;"></div>
+
+      <p style="margin-top:20px; text-align:center;">
+        Already have an account?
+        <a href="login.html" style="color:#3a7bd5;">Log In</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Add helper function to calculate byte length
+    function getStringByteLength(str) {
+      return new TextEncoder().encode(str).length;
+    }
+    
+    // Update password byte counter in real-time
+    function updatePasswordByteCounter() {
+      const password = document.getElementById('password').value;
+      const byteLength = getStringByteLength(password);
+      const counter = document.getElementById('passwordByteCounter');
+      
+      counter.textContent = `${byteLength}/72 bytes`;
+      
+      if (byteLength > 72) {
+        counter.style.color = '#e74c3c';
+        counter.style.fontWeight = 'bold';
+      } else if (byteLength > 60) {
+        counter.style.color = '#f39c12'; // Warning orange
+      } else {
+        counter.style.color = '#27ae60'; // Safe green
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const signupForm = document.getElementById('signupForm');
+      const generalError = document.getElementById('generalError');
+      const passwordInput = document.getElementById('password');
+      
+      // Add real-time password byte counter
+      passwordInput.addEventListener('input', updatePasswordByteCounter);
+      
+      // Set max date for birth (must be at least 13 years old)
+      const birthInput = document.getElementById('birth');
+      const today = new Date();
+      const maxDate = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate());
+      birthInput.max = AuthService.formatDate(maxDate);
+      
+      // Check if already logged in
+      if (AuthService.isAuthenticated()) {
+        window.location.href = 'dashboard.html';
+      }
+
+      signupForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Clear all errors
+        ['nameError', 'usernameError', 'emailError', 'passwordError', 'phoneError', 'birthError', 'sexError', 'generalError'].forEach(id => {
+          UIHelper.hideError(id);
+        });
+        
+        // Get form values
+        const formData = {
+          name: document.getElementById('name').value.trim(),
+          username: document.getElementById('username').value.trim(),
+          email: document.getElementById('email').value.trim(),
+          password: document.getElementById('password').value,
+          phone_number: document.getElementById('phone_number').value.trim(),
+          birth: document.getElementById('birth').value,
+          sex: document.getElementById('sex').value,
+          profile: "base64"
+        };
+        
+        // Validation
+        let isValid = true;
+        
+        if (!formData.name) {
+          UIHelper.showError('nameError', 'Full name is required');
+          isValid = false;
+        }
+        
+        if (!formData.username) {
+          UIHelper.showError('usernameError', 'Username is required');
+          isValid = false;
+        } else if (formData.username.length < 3) {
+          UIHelper.showError('usernameError', 'Username must be at least 3 characters');
+          isValid = false;
+        }
+        
+        if (!formData.email) {
+          UIHelper.showError('emailError', 'Email is required');
+          isValid = false;
+        } else if (!AuthService.validateEmail(formData.email)) {
+          UIHelper.showError('emailError', 'Please enter a valid email address');
+          isValid = false;
+        }
+        
+        if (!formData.password) {
+          UIHelper.showError('passwordError', 'Password is required');
+          isValid = false;
+        } else if (formData.password.length < 6) {
+          UIHelper.showError('passwordError', 'Password must be at least 6 characters');
+          isValid = false;
+        }
+        
+        // NEW: Check password byte length
+        const passwordByteLength = getStringByteLength(formData.password);
+        if (passwordByteLength > 72) {
+          UIHelper.showError('passwordError', 
+            `Password is too long! It uses ${passwordByteLength} bytes (max 72 bytes). ` +
+            'Please use a shorter password without emojis or special characters.'
+          );
+          isValid = false;
+        }
+        
+        if (!formData.phone_number) {
+          UIHelper.showError('phoneError', 'Phone number is required');
+          isValid = false;
+        } else if (!AuthService.validatePhone(formData.phone_number)) {
+          UIHelper.showError('phoneError', 'Please enter a valid phone number');
+          isValid = false;
+        }
+        
+        if (!formData.birth) {
+          UIHelper.showError('birthError', 'Birth date is required');
+          isValid = false;
+        }
+        
+        if (!formData.sex) {
+          UIHelper.showError('sexError', 'Gender is required');
+          isValid = false;
+        }
+        
+        if (!isValid) return;
+        
+        const submitButton = signupForm.querySelector('button[type="submit"]');
+        const originalText = UIHelper.showLoading(submitButton);
+        
+        // Call API
+        const result = await ApiService.register(formData);
+        
+        UIHelper.hideLoading(submitButton, originalText);
+        
+        if (result.success) {
+          UIHelper.showToast('Registration successful! Please login.', 'success');
+          setTimeout(() => {
+            window.location.href = 'login.html';
+          }, 2000);
+        } else {
+          // Handle specific password length error from backend
+          if (result.error && result.error.includes('72 bytes')) {
+            UIHelper.showError('passwordError', result.error);
+          } else {
+            UIHelper.showError('generalError', result.error);
+          }
+        }
+      });
+      
+      // Real-time username validation
+      const usernameInput = document.getElementById('username');
+      let usernameTimeout;
+      
+      usernameInput.addEventListener('input', function() {
+        clearTimeout(usernameTimeout);
+        const username = this.value.trim();
+        
+        if (username.length >= 3) {
+          usernameTimeout = setTimeout(async () => {
+            const result = await ApiService.checkUsername(username);
+            if (result.success && !result.data.available) {
+              UIHelper.showError('usernameError', 'Username is already taken');
+            }
+          }, 500);
+        }
+      });
+      
+      // Real-time email validation
+      const emailInput = document.getElementById('email');
+      let emailTimeout;
+      
+      emailInput.addEventListener('input', function() {
+        clearTimeout(emailTimeout);
+        const email = this.value.trim();
+        
+        if (email && AuthService.validateEmail(email)) {
+          emailTimeout = setTimeout(async () => {
+            const result = await ApiService.checkEmail(email);
+            if (result.success && !result.data.available) {
+              UIHelper.showError('emailError', 'Email is already registered');
+            }
+          }, 500);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

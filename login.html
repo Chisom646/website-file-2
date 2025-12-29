@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="auth.js"></script>
+</head>
+
+<body>
+  <div class="container">
+    <div class="card" style="max-width:450px; margin:auto;">
+
+      <h2>Log In</h2>
+      <p>Welcome back! Please enter your details.</p>
+
+      <form id="loginForm">
+        <input class="input" type="text" id="username" name="username" placeholder="Username" required>
+        <div id="usernameError" class="error-message"></div>
+
+        <input class="input" type="password" id="password" name="password" placeholder="Password" required>
+        <div id="passwordError" class="error-message"></div>
+
+        <button type="submit" class="btn btn-blue" style="width:100%; margin-top:15px;">Log In</button>
+      </form>
+
+      <div id="generalError" class="error-message" style="margin-top: 15px;"></div>
+
+      <p style="margin-top:20px; text-align:center;">
+        Don't have an account?
+        <a href="signup.html" style="color:#3a7bd5;">Sign Up</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const loginForm = document.getElementById('loginForm');
+      const generalError = document.getElementById('generalError');
+      
+      // Check if already logged in
+      if (AuthService.isAuthenticated()) {
+        window.location.href = 'dashboard.html';
+      }
+
+      loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Clear errors
+        UIHelper.hideError('usernameError');
+        UIHelper.hideError('passwordError');
+        UIHelper.hideError('generalError');
+        
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const submitButton = loginForm.querySelector('button[type="submit"]');
+        
+        // Basic validation
+        if (!username) {
+          UIHelper.showError('usernameError', 'Username is required');
+          return;
+        }
+        
+        if (!password) {
+          UIHelper.showError('passwordError', 'Password is required');
+          return;
+        }
+        
+        // Show loading
+        const originalText = UIHelper.showLoading(submitButton);
+        
+        // Call API
+        const result = await ApiService.login(username, password);
+        
+        // Hide loading
+        UIHelper.hideLoading(submitButton, originalText);
+        
+        if (result.success) {
+          UIHelper.showToast('Login successful!', 'success');
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 1000);
+        } else {
+          UIHelper.showError('generalError', result.error);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

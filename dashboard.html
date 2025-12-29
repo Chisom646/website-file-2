@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="auth.js"></script>
+</head>
+
+<body>
+  <div class="container">
+
+    <h1>Home / Dashboard</h1>
+    <nav>
+      <h2>People Help The People</h2>
+      <div>
+        <a href="#" onclick="logout()">Signout</a>
+        <a href="dashboard.html">Home</a>
+        <a href="groups.html">Groups</a>
+        <a href="profile.html">Profile</a>
+      </div>
+    </nav>
+
+    <div class="grid-2" style="margin-top:10px; grid-template-columns:1fr 2fr;">
+      
+      <!-- Welcome Card -->
+      <div class="card" id="welcomeCard">
+        <h3>Welcome!</h3>
+        <p>Loading your information...</p>
+      </div>
+
+      <!-- Posts -->
+      <div class="card">
+        <img src="images/groupsitting.jpeg" style="width:100%; border-radius:22px;">
+        <h3 style="margin-top: 15px;">Community Updates</h3>
+        <div id="communityPosts">
+          <p>Loading community posts...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadDashboard() {
+      // Check authentication
+      if (!AuthService.isAuthenticated()) {
+        window.location.href = 'login.html';
+        return;
+      }
+      
+      try {
+        // Load user profile
+        const result = await ApiService.getProfile();
+        
+        if (result.success) {
+          const user = result.data;
+          const welcomeCard = document.getElementById('welcomeCard');
+          
+          welcomeCard.innerHTML = `
+            <h3>Welcome, ${user.name || user.username}!</h3>
+            <p><strong>Email:</strong> ${user.email}</p>
+            ${user.roles ? `<p><strong>Role:</strong> ${user.roles.join(', ')}</p>` : ''}
+            <p style="margin-top: 15px; font-style: italic;">
+              "You are not alone. We're here to support each other."
+            </p>
+          `;
+          
+          // Update navigation with username
+          const navLinks = document.querySelector('nav div');
+          const userSpan = document.createElement('span');
+          userSpan.style.marginRight = '15px';
+          userSpan.style.fontWeight = 'bold';
+          userSpan.textContent = `Hi, ${user.username}`;
+          navLinks.insertBefore(userSpan, navLinks.firstChild);
+          
+        } else {
+          if (result.error === 'Not authenticated') {
+            AuthService.logout();
+            window.location.href = 'login.html';
+          } else {
+            document.getElementById('welcomeCard').innerHTML = `
+              <h3>Error</h3>
+              <p>${result.error}</p>
+            `;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+        document.getElementById('welcomeCard').innerHTML = `
+          <h3>Error</h3>
+          <p>Failed to load dashboard. Please try again.</p>
+        `;
+      }
+    }
+    
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        AuthService.logout();
+        window.location.href = 'landing.html';
+      }
+    }
+    
+    // Load dashboard when page loads
+    document.addEventListener('DOMContentLoaded', loadDashboard);
+  </script>
+</body>
+</html>

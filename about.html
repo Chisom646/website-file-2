@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>People Help the People</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="card">
+      <nav>
+        <h1 style="
+        background: #f7f9fc;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        max-width: 700px;
+        margin: 10px 0;
+        font-family: Arial, Helvetica, sans-serif;
+        line-height: 1.6;
+      ">People Help The People</h1>
+          <div>
+            <a href="landing.html">Home</a>
+            <a href="about.html">About</a>
+          </div>
+      </nav>
+
+      <div class="grid-2" style="margin-top:40px;">
+        <img src="images/heart.jpeg"
+         style="width:100%; border-radius:22px;">
+
+        <div style="display:flex; flex-direction:column; justify-content:center;">
+          <h1>CONNECT. SHARE. HEAL.</h1>
+
+          <div style="margin-top:20px;">
+            <h2 style="margin-top:0; color:#2b3a55;">About Our Community</h2>
+                <p style="color:#444;">
+                    Our website is a safe, supportive space created for anyone who has experienced any form of abuse.
+                    Here, people connect with others who truly understand what they’ve been through. 
+                </p>
+                <p style="color:#444;">
+                    We bring survivors together to share their stories, offer comfort, learn from each other, and grow stronger as a community.
+                    Whether you are seeking encouragement, understanding, or simply a place where you’re not alone, 
+                    this platform is built to help you heal and connect.
+                </p>
+                <p style="color:#444;">
+                    You are welcome hereyour voice matters, and your journey is important.
+                </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+  <script src="auth.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Check authentication for protected pages
+    const currentPage = window.location.pathname;
+    const protectedPages = ['dashboard.html', 'profile.html', 'groups.html'];
+    
+    if (protectedPages.some(page => currentPage.includes(page))) {
+      if (!AuthService.isAuthenticated()) {
+        window.location.href = 'login.html';
+      }
+    }
+    
+    // Update navigation if logged in
+    const navLinks = document.querySelector('nav div');
+    if (AuthService.isAuthenticated() && navLinks) {
+      const userData = AuthService.getUserData();
+      const username = userData?.username || 'User';
+      
+      const userSpan = document.createElement('span');
+      userSpan.style.marginRight = '15px';
+      userSpan.style.fontWeight = 'bold';
+      userSpan.textContent = `Hi, ${username}`;
+      navLinks.insertBefore(userSpan, navLinks.firstChild);
+      
+      // Update logout link
+      const logoutLink = navLinks.querySelector('a[href="landing.html"]');
+      if (logoutLink) {
+        logoutLink.href = '#';
+        logoutLink.onclick = function(e) {
+          e.preventDefault();
+          if (confirm('Are you sure you want to logout?')) {
+            AuthService.logout();
+            window.location.href = 'landing.html';
+          }
+        };
+      }
+    }
+  });
+  
+  function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+      AuthService.logout();
+      window.location.href = 'landing.html';
+    }
+  }
+</script>
+</body>
+</html>

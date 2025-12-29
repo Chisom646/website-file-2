@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>People Help the People</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="auth.js"></script>
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="card">
+      <nav>
+        <h2>People Help The People</h2>
+          <div>
+            <a href="landing.html">Home</a>
+            <a href="about.html">About</a>
+            <span id="authStatus"></span>
+          </div>
+      </nav>
+
+      <div class="grid-2" style="margin-top:40px;">
+        <img src="images/holdinghands.jpeg"
+         style="width:100%; border-radius:22px;">
+
+        <div style="display:flex; flex-direction:column; justify-content:center;">
+          <h1>CONNECT. SHARE. HEAL.</h1>
+
+          <div style="margin-top:20px;" id="authButtons">
+            <a href="login.html"><button class="btn btn-blue">Login</button></a>
+            <a href="signup.html"><button class="btn btn-green">Sign Up</button></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const authStatus = document.getElementById('authStatus');
+      const authButtons = document.getElementById('authButtons');
+      
+      if (AuthService.isAuthenticated()) {
+        const userData = AuthService.getUserData();
+        const username = userData?.username || 'User';
+        
+        // Update auth status
+        authStatus.innerHTML = `
+          <span style="margin-right: 15px;">Welcome, ${username}!</span>
+          <a href="dashboard.html" style="margin-right: 10px;">Dashboard</a>
+          <a href="#" onclick="logout()">Logout</a>
+        `;
+        
+        // Update buttons
+        authButtons.innerHTML = `
+          <a href="dashboard.html"><button class="btn btn-blue">Go to Dashboard</button></a>
+          <a href="profile.html"><button class="btn btn-green" style="margin-left: 10px;">My Profile</button></a>
+        `;
+      }
+    });
+    
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        AuthService.logout();
+        window.location.reload();
+      }
+    }
+  </script>
+</body>
+</html>
