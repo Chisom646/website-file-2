@@ -3,103 +3,160 @@
 <head>
   <title>Dashboard</title>
   <link rel="stylesheet" href="style.css">
-  <script src="auth.js"></script>
+  <style>
+    .post-form {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+    }
+
+    .post-form textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .post-form textarea:focus {
+      outline: none;
+      border-color: #b8dcff;
+      box-shadow: 0 0 0 3px rgba(184, 220, 255, 0.2);
+    }
+
+    .post-form-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      align-items: center;
+    }
+
+    .post-form select {
+      padding: 10px 16px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      background: white;
+      cursor: pointer;
+    }
+
+    .post-form select:focus {
+      outline: none;
+      border-color: #b8dcff;
+      box-shadow: 0 0 0 3px rgba(184, 220, 255, 0.2);
+    }
+  </style>
 </head>
 
 <body>
   <div class="container">
-
-    <h1>Home / Dashboard</h1>
-    <nav>
+    <nav class="card">
       <h2>People Help The People</h2>
       <div>
-        <a href="#" onclick="logout()">Signout</a>
         <a href="dashboard.html">Home</a>
-        <a href="groups.html">Groups</a>
+        <a href="communities.html">Communities</a>
         <a href="profile.html">Profile</a>
+        <a href="#" onclick="logout()">Logout</a>
       </div>
     </nav>
 
-    <div class="grid-2" style="margin-top:10px; grid-template-columns:1fr 2fr;">
-      
+    <div class="grid-2 mt-20" style="grid-template-columns:1fr 2fr;">
+
       <!-- Welcome Card -->
       <div class="card" id="welcomeCard">
         <h3>Welcome!</h3>
         <p>Loading your information...</p>
       </div>
 
-      <!-- Posts -->
-      <div class="card">
-        <img src="images/groupsitting.jpeg" style="width:100%; border-radius:22px;">
-        <h3 style="margin-top: 15px;">Community Updates</h3>
-        <div id="communityPosts">
-          <p>Loading community posts...</p>
+      <!-- Feed -->
+      <div>
+        <div class="card">
+          <h3>Share Your Thoughts</h3>
+          <div class="post-form">
+            <textarea
+              id="post-content"
+              placeholder="What's on your mind? Share your thoughts, experiences, or words of encouragement..."
+              maxlength="2000"
+            ></textarea>
+            <div class="post-form-actions">
+              <select id="post-community">
+                <option value="">General Feed</option>
+                <!-- Communities loaded dynamically -->
+              </select>
+              <button id="post-submit" class="btn btn-green">Post</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-20">
+          <h3>Community Feed</h3>
+          <div id="feed-posts">
+            <!-- Posts will be loaded here -->
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Scripts -->
+  <script src="js/auth-guard.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/feed.js"></script>
+
   <script>
     async function loadDashboard() {
-      // Check authentication
-      if (!AuthService.isAuthenticated()) {
+      if (!Auth.isAuthenticated()) {
         window.location.href = 'login.html';
         return;
       }
-      
+
       try {
-        // Load user profile
-        const result = await ApiService.getProfile();
-        
+        const result = await API.getProfile();
+
         if (result.success) {
           const user = result.data;
           const welcomeCard = document.getElementById('welcomeCard');
-          
+
           welcomeCard.innerHTML = `
-            <h3>Welcome, ${user.name || user.username}!</h3>
-            <p><strong>Email:</strong> ${user.email}</p>
-            ${user.roles ? `<p><strong>Role:</strong> ${user.roles.join(', ')}</p>` : ''}
-            <p style="margin-top: 15px; font-style: italic;">
+            <h3>Welcome, ${UI.escapeHtml(user.name || user.username)}!</h3>
+            <p><strong>Email:</strong> ${UI.escapeHtml(user.email)}</p>
+            ${user.roles ? `<p><strong>Role:</strong> ${UI.escapeHtml(user.roles.join(', '))}</p>` : ''}
+            <p style="margin-top: 15px; font-style: italic; color: #666;">
               "You are not alone. We're here to support each other."
             </p>
+            <div style="margin-top: 20px;">
+              <a href="communities.html" class="btn btn-blue" style="text-decoration: none;">
+                💬 Join Communities
+              </a>
+            </div>
           `;
-          
-          // Update navigation with username
-          const navLinks = document.querySelector('nav div');
-          const userSpan = document.createElement('span');
-          userSpan.style.marginRight = '15px';
-          userSpan.style.fontWeight = 'bold';
-          userSpan.textContent = `Hi, ${user.username}`;
-          navLinks.insertBefore(userSpan, navLinks.firstChild);
-          
         } else {
-          if (result.error === 'Not authenticated') {
-            AuthService.logout();
+          if (result.error === 'Not authenticated' || result.status === 401) {
+            Auth.logout();
             window.location.href = 'login.html';
           } else {
-            document.getElementById('welcomeCard').innerHTML = `
-              <h3>Error</h3>
-              <p>${result.error}</p>
-            `;
+            UI.showError('welcomeCard', result.error || 'Failed to load profile');
           }
         }
       } catch (error) {
         console.error('Error loading dashboard:', error);
-        document.getElementById('welcomeCard').innerHTML = `
-          <h3>Error</h3>
-          <p>Failed to load dashboard. Please try again.</p>
-        `;
+        UI.showError('welcomeCard', 'Failed to load dashboard. Please try again.');
       }
     }
-    
+
     function logout() {
-      if (confirm('Are you sure you want to logout?')) {
-        AuthService.logout();
+      if (UI.confirm('Are you sure you want to logout?')) {
+        Auth.logout();
         window.location.href = 'landing.html';
       }
     }
-    
-    // Load dashboard when page loads
+
     document.addEventListener('DOMContentLoaded', loadDashboard);
   </script>
 </body>

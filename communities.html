@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Communities</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Chat Panel Styles */
+    #chat-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 999;
+    }
+
+    #chat-panel {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-header {
+      padding: 20px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chat-header h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    #chat-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #999;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background 0.2s ease;
+    }
+
+    #chat-close:hover {
+      background: #f5f5f5;
+    }
+
+    .chat-status {
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .status-connected { color: #4CAF50; }
+    .status-connecting { color: #ff9800; }
+    .status-disconnected { color: #999; }
+    .status-error { color: #f44336; }
+
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chat-message {
+      display: flex;
+      flex-direction: column;
+      max-width: 70%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      word-wrap: break-word;
+    }
+
+    .chat-message-own {
+      align-self: flex-end;
+      background: #b8dcff;
+      color: #0066cc;
+    }
+
+    .chat-message-other {
+      align-self: flex-start;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .chat-message-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .chat-message-time {
+      font-size: 11px;
+      opacity: 0.7;
+      margin-left: 8px;
+    }
+
+    .chat-message-content {
+      font-size: 14px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .chat-input-container {
+      padding: 16px;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 10px;
+    }
+
+    #chat-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid #ddd;
+      border-radius: 24px;
+      font-size: 14px;
+      resize: none;
+      font-family: inherit;
+    }
+
+    #chat-input:focus {
+      outline: none;
+      border-color: #b8dcff;
+      box-shadow: 0 0 0 3px rgba(184, 220, 255, 0.2);
+    }
+
+    #chat-send {
+      padding: 12px 24px;
+      background: #b8dcff;
+      color: #0066cc;
+      border: none;
+      border-radius: 24px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    #chat-send:hover {
+      background: #a0d0ff;
+      transform: translateY(-2px);
+    }
+
+    #chat-send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    @media (max-width: 768px) {
+      #chat-panel {
+        width: 95%;
+        max-height: 90vh;
+      }
+
+      .chat-message {
+        max-width: 85%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <nav class="card">
+      <h2>People Help The People</h2>
+      <div>
+        <a href="dashboard.html">Home</a>
+        <a href="communities.html">Communities</a>
+        <a href="profile.html">Profile</a>
+        <a href="#" onclick="logout()">Logout</a>
+      </div>
+    </nav>
+
+    <div class="card mt-20">
+      <h1>Support Communities</h1>
+      <p>Join supportive communities and connect with others on their healing journey.</p>
+    </div>
+
+    <div id="communities-list" class="mt-20">
+      <!-- Communities will be loaded here -->
+    </div>
+  </div>
+
+  <!-- Chat Overlay -->
+  <div id="chat-overlay"></div>
+
+  <!-- Chat Panel -->
+  <div id="chat-panel">
+    <div class="chat-header">
+      <div>
+        <h3 id="chat-community-name">Community Chat</h3>
+        <div id="chat-status" class="chat-status"></div>
+      </div>
+      <button id="chat-close" aria-label="Close chat">×</button>
+    </div>
+
+    <div id="chat-messages">
+      <!-- Messages will be loaded here -->
+    </div>
+
+    <div class="chat-input-container">
+      <textarea
+        id="chat-input"
+        placeholder="Type your message..."
+        rows="1"
+        maxlength="1000"
+      ></textarea>
+      <button id="chat-send">Send</button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/auth-guard.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/communities.js"></script>
+
+  <script>
+    function logout() {
+      if (UI.confirm('Are you sure you want to logout?')) {
+        Auth.logout();
+        window.location.href = 'landing.html';
+      }
+    }
+  </script>
+</body>
+</html>

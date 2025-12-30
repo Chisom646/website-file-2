@@ -3,18 +3,17 @@
 <head>
   <title>Profile</title>
   <link rel="stylesheet" href="style.css">
-  <script src="auth.js"></script>
 </head>
 
 <body>
   <div class="container">
-    <nav>
+    <nav class="card">
       <h2>People Help The People</h2>
       <div>
-        <a href="#" onclick="logout()">Signout</a>
         <a href="dashboard.html">Home</a>
-        <a href="groups.html">Groups</a>
+        <a href="communities.html">Communities</a>
         <a href="profile.html">Profile</a>
+        <a href="#" onclick="logout()">Logout</a>
       </div>
     </nav>
 
@@ -29,34 +28,35 @@
     </div>
   </div>
 
+  <!-- Scripts -->
+  <script src="js/auth-guard.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+
   <script>
     async function loadProfile() {
-      // Check authentication
-      if (!AuthService.isAuthenticated()) {
+      if (!Auth.isAuthenticated()) {
         window.location.href = 'login.html';
         return;
       }
-      
+
+      const profileInfo = document.getElementById('profileInfo');
+      UI.showLoading(profileInfo, 'Loading profile...');
+
       try {
-        // Load user profile
-        const result = await ApiService.getProfile();
-        
+        const result = await API.getProfile();
+
         if (result.success) {
           const user = result.data;
-          
+
           // Update profile image with initials
           const profileImage = document.getElementById('profileImage');
           const initials = (user.name || user.username).charAt(0).toUpperCase();
-          profileImage.innerHTML = `<span style="font-size: 48px; line-height: 110px;">${initials}</span>`;
-          profileImage.style.background = '#4a6fa5';
-          profileImage.style.color = 'white';
-          profileImage.style.display = 'flex';
-          profileImage.style.alignItems = 'center';
-          profileImage.style.justifyContent = 'center';
-          
+          profileImage.textContent = initials;
+
           // Update user name
           document.getElementById('userName').textContent = user.name || user.username;
-          
+
           // Calculate age from birth date
           let ageInfo = '';
           if (user.birth) {
@@ -69,45 +69,45 @@
             }
             ageInfo = `<p><b>Age:</b> ${age}</p>`;
           }
-          
-          // Update profile information
-          document.getElementById('profileInfo').innerHTML = `
+
+          // Update profile information (using safe HTML)
+          const safeGender = UI.escapeHtml(user.sex || 'Not specified');
+          const safeEmail = UI.escapeHtml(user.email);
+          const safePhone = user.phone_number ? UI.escapeHtml(user.phone_number) : null;
+          const memberSince = new Date(user.created_at).toLocaleDateString();
+
+          profileInfo.innerHTML = `
             ${ageInfo}
-            <p><b>Gender:</b> ${user.sex || 'Not specified'}</p>
-            <p><b>Email:</b> ${user.email}</p>
-            ${user.phone_number ? `<p><b>Phone:</b> ${user.phone_number}</p>` : ''}
-            <p><b>Member since:</b> ${new Date(user.created_at).toLocaleDateString()}</p>
-            <p style="margin-top: 20px; font-style: italic; border-top: 1px solid #eee; padding-top: 15px;">
+            <p><b>Gender:</b> ${safeGender}</p>
+            <p><b>Email:</b> ${safeEmail}</p>
+            ${safePhone ? `<p><b>Phone:</b> ${safePhone}</p>` : ''}
+            <p><b>Member since:</b> ${memberSince}</p>
+            <p style="margin-top: 20px; font-style: italic; border-top: 1px solid #eee; padding-top: 15px; color: #666;">
               "Strength doesn't come from what you can do. It comes from overcoming the things you once thought you couldn't."
             </p>
           `;
-          
+
         } else {
-          if (result.error === 'Not authenticated') {
-            AuthService.logout();
+          if (result.error === 'Not authenticated' || result.status === 401) {
+            Auth.logout();
             window.location.href = 'login.html';
           } else {
-            document.getElementById('profileInfo').innerHTML = `
-              <p style="color: red;">Error: ${result.error}</p>
-            `;
+            UI.showError(profileInfo, result.error || 'Failed to load profile');
           }
         }
       } catch (error) {
         console.error('Error loading profile:', error);
-        document.getElementById('profileInfo').innerHTML = `
-          <p style="color: red;">Failed to load profile. Please try again.</p>
-        `;
+        UI.showError(profileInfo, 'Failed to load profile. Please try again.');
       }
     }
-    
+
     function logout() {
-      if (confirm('Are you sure you want to logout?')) {
-        AuthService.logout();
+      if (UI.confirm('Are you sure you want to logout?')) {
+        Auth.logout();
         window.location.href = 'landing.html';
       }
     }
-    
-    // Load profile when page loads
+
     document.addEventListener('DOMContentLoaded', loadProfile);
   </script>
 </body>
