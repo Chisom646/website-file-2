@@ -6,7 +6,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from .config import db, RATE_LIMIT_ENABLED, RATE_LIMIT_PER_MINUTE
-from .routes import auth_routes, community_routes
+from .routes import auth_routes, community_routes, feed_routes
 
 # Configure structured logging
 logging.basicConfig(
@@ -54,6 +54,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(community_routes.router, prefix="/api")
+app.include_router(feed_routes.router, prefix="/api")
 
 @app.on_event("startup")
 async def startup():
