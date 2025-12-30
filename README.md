@@ -4,17 +4,24 @@ A mental health and abuse survivor support community platform built with FastAPI
 
 ## Features
 
-- 🔐 User registration and JWT-based authentication
+- 🔐 User registration and JWT-based authentication with rate limiting
 - 👤 User profiles with personal information
-- 🏥 Support group features (coming soon)
-- 💬 Community posts and discussions (coming soon)
+- 🌍 Multi-language support (English, Yoruba, Hausa, Igbo)
+- 🏥 Support communities with membership management
+- 💬 Real-time WebSocket chat for communities
+- 📝 User feed with posts (general and community-specific)
+- 🛡️ Permission-based content management
 - 📱 Responsive web interface
+- 📊 Structured logging and security best practices
 
 ## Tech Stack
 
 - **Backend**: FastAPI 0.104+, Python 3.11+
-- **Database**: PostgreSQL with SQLModel ORM
+- **Database**: PostgreSQL 14+ with SQLModel ORM and AsyncPG
 - **Authentication**: JWT tokens with bcrypt password hashing
+- **Real-time**: WebSocket support for chat
+- **Security**: slowapi rate limiting, structured logging
+- **i18n**: Multi-language support (translation-ready infrastructure)
 - **Frontend**: Vanilla HTML/CSS/JavaScript
 
 ## Prerequisites
@@ -75,7 +82,7 @@ GRANT ALL PRIVILEGES ON DATABASE people_help_db TO people_help_app;
 
 ### 5. Configure Environment Variables
 
-Create a `.env` file in the `people_help/` directory:
+Create a `.env` file in the `people_help/` directory (use `.env.example` as template):
 
 ```bash
 # people_help/.env
@@ -95,6 +102,15 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 # Application Settings
 DEBUG=true
 ENVIRONMENT=development
+
+# Rate Limiting
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_PER_MINUTE=60
+
+# Translation (i18n)
+# IMPORTANT: Translation is currently DISABLED
+# Set to true only when translation files are ready
+TRANSLATION_ENABLED=false
 ```
 
 **⚠️ Important**: Generate a strong secret key:
@@ -105,19 +121,29 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 ### 6. Initialize the Database
 
-Run the setup script to create tables and default roles:
+**Option A: Automatic setup (Recommended)**
+
+The database tables will be created automatically when you first start the server. The application uses SQLModel's `create_all()` during startup.
+
+**Option B: Manual setup with migrations**
+
+Apply database migrations manually for additional schema changes:
+
+```bash
+# Apply all migrations in order
+psql -U your_db_user -d people_help_db -f people_help/migrations/001_add_language_to_users.sql
+psql -U your_db_user -d people_help_db -f people_help/migrations/002_create_communities_tables.sql
+psql -U your_db_user -d people_help_db -f people_help/migrations/003_create_posts_table.sql
+```
+
+See [people_help/migrations/README.md](people_help/migrations/README.md) for detailed migration documentation.
+
+**Option C: Legacy setup script**
+
+If available, run the setup script to create tables and default roles:
 
 ```bash
 python3 people_help/setup.py
-```
-
-Expected output:
-```
-🔄 Setting up database...
-✅ Tables created successfully
-✅ Default roles initialized
-
-🎉 Setup completed successfully!
 ```
 
 ### 7. Start the Server
@@ -213,21 +239,36 @@ people-help --help
 | `DEBUG` | Debug mode | `false` |
 | `ENVIRONMENT` | Environment name | `production` |
 | `PORT` | Server port (CLI default) | `8888` |
+| `RATE_LIMIT_ENABLED` | Enable rate limiting | `true` |
+| `RATE_LIMIT_PER_MINUTE` | General rate limit | `60` |
+| `TRANSLATION_ENABLED` | Enable i18n translation | `false` |
 
 ## API Endpoints
 
 ### Authentication
-
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login and get JWT token
+- `POST /api/auth/register` - Register new user (rate limited: 5/min)
+- `POST /api/auth/login` - Login and get JWT token (rate limited: 10/min)
 - `GET /api/auth/profile` - Get current user profile (requires auth)
 - `GET /api/auth/check-username/{username}` - Check username availability
 - `GET /api/auth/check-email/{email}` - Check email availability
+- `GET /api/auth/languages` - Get supported languages
+- `PUT /api/auth/language` - Update user language preference (requires auth)
+
+### Communities
+- `GET /api/communities` - List all communities with membership status (requires auth)
+- `POST /api/communities/{community_id}/join` - Join a community (requires auth)
+- `POST /api/communities/{community_id}/leave` - Leave a community (requires auth)
+- `GET /api/communities/{community_id}/messages` - Get chat messages (requires auth, members only)
+- `WS /api/communities/{community_id}/ws` - WebSocket for real-time chat (requires auth)
+
+### Feed
+- `POST /api/posts` - Create a new post (requires auth)
+- `GET /api/posts` - Get feed posts, optionally filtered by community (requires auth)
+- `DELETE /api/posts/{post_id}` - Delete a post (requires auth, author or admin only)
 
 ### Health Check
-
 - `GET /` - API root message
-- `GET /health` - Health check endpoint
+- `GET /health` - Health check endpoint with rate limiting status
 
 Full interactive API documentation available at http://localhost:8888/docs
 
@@ -235,7 +276,7 @@ Full interactive API documentation available at http://localhost:8888/docs
 
 ```
 .
-├── people_help/              # Main package (formerly 'app/')
+├── people_help/              # Main package
 │   ├── __init__.py
 │   ├── __main__.py          # Enables 'python -m people_help'
 │   ├── cli.py               # CLI entry point
@@ -243,33 +284,36 @@ Full interactive API documentation available at http://localhost:8888/docs
 │   ├── config.py            # Configuration and database
 │   ├── setup.py             # Database initialization script
 │   ├── .env                 # Environment variables (not in git)
+│   ├── .env.example         # Environment variables template
 │   │
 │   ├── models/              # SQLModel database models
-│   │   ├── user.py
-│   │   ├── person.py
-│   │   ├── role.py
-│   │   └── user_role.py
-│   │
-│   ├── repositories/        # Data access layer
-│   │   ├── base.py
-│   │   ├── user_repository.py
-│   │   └── person_repository.py
+│   │   ├── user.py          # User authentication model
+│   │   ├── person.py        # Person profile model
+│   │   ├── role.py          # Role model
+│   │   ├── user_role.py     # User-role association
+│   │   ├── community.py     # Community models
+│   │   └── post.py          # Feed post model
 │   │
 │   ├── routes/              # API endpoints
-│   │   └── auth_routes.py
+│   │   ├── auth_routes.py   # Authentication endpoints
+│   │   ├── community_routes.py  # Community and chat endpoints
+│   │   └── feed_routes.py   # Feed/posts endpoints
 │   │
-│   ├── services/            # Business logic
-│   │   └── auth_service.py
+│   ├── i18n/                # Internationalization
+│   │   ├── __init__.py      # Language configuration
+│   │   └── translator.py    # Translation service (stubbed)
 │   │
-│   ├── schemas/             # Pydantic request/response schemas
-│   │   └── auth.py
+│   ├── migrations/          # Database migrations
+│   │   ├── README.md        # Migration documentation
+│   │   ├── 001_add_language_to_users.sql
+│   │   ├── 002_create_communities_tables.sql
+│   │   └── 003_create_posts_table.sql
 │   │
-│   ├── dependencies/        # FastAPI dependencies
-│   │   └── auth.py
+│   ├── utils/               # Utility modules
+│   │   ├── security.py      # Password hashing, JWT
+│   │   └── exceptions.py    # Custom exceptions
 │   │
-│   └── utils/               # Utility modules
-│       ├── security.py      # Password hashing, JWT
-│       └── exceptions.py    # Custom exceptions
+│   └── [legacy directories]  # repositories/, services/, schemas/, dependencies/
 │
 ├── *.html                   # Frontend pages
 ├── auth.js                  # Frontend API client
@@ -279,7 +323,6 @@ Full interactive API documentation available at http://localhost:8888/docs
 ├── pyproject.toml           # Package metadata and dependencies
 ├── README.md                # This file
 └── .gitignore              # Git ignore rules
-
 ```
 
 ## Development
@@ -296,7 +339,11 @@ pytest
 
 ### Database Migrations
 
-The project currently uses `SQLModel.metadata.create_all()` for schema management. For production, consider implementing Alembic migrations.
+The project uses SQL migration files in `people_help/migrations/` for schema changes:
+- Migrations are idempotent (use `IF NOT EXISTS` clauses)
+- Apply manually using `psql` (see [migrations/README.md](people_help/migrations/README.md))
+- Base tables are created automatically via `SQLModel.metadata.create_all()` on startup
+- For production, consider implementing Alembic for automated migration tracking
 
 ### Code Style
 
@@ -344,8 +391,12 @@ Ensure backend is running on port 8888 and frontend is on port 5500. The CORS co
 - **Never commit `.env` files** to version control
 - Generate strong random secret keys using `secrets.token_urlsafe(32)`
 - Use HTTPS in production
-- Enable rate limiting in production
+- Rate limiting is enabled by default (5/min registration, 10/min login, 60/min general)
 - Review CORS origins for production deployment
+- Password minimum length: 6 characters
+- JWT tokens expire after 30 minutes (configurable)
+- Passwords are hashed with bcrypt before storage
+- Permission checks enforce content ownership (posts, communities)
 
 ## Contributing
 
