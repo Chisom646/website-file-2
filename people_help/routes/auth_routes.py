@@ -1,17 +1,19 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, validator
 from datetime import timedelta
 import uuid
 from ..config import get_db
-from ..utils.security import get_password_hash, verify_password, create_access_token
+from ..utils.security import get_password_hash, verify_password, create_access_token, verify_token
 from ..models.user import User
 from ..models.person import Person
 from ..models.role import Role
 from ..models.user_role import UserRole
 
 router = APIRouter()
+security = HTTPBearer(auto_error=False)
 
 MAX_PASSWORD_BYTES = 72  # bcrypt and PostgreSQL max bytes
 
@@ -36,6 +38,8 @@ class RegisterRequest(BaseModel):
     
     @validator('password')
     def validate_password_length(cls, v):
+        if len(v) < 6:
+            raise ValueError("Password must be at least 6 characters")
         password_bytes = v.encode('utf-8')
         if len(password_bytes) > MAX_PASSWORD_BYTES:
             raise ValueError(
@@ -159,3 +163,76 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         "name": person.name if person else user.username,
         "roles": [role.name for role in roles]
     }
+# Dependency to get current user from JWT token
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    """Extract and verify JWT token, return current user."""
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    token = credentials.credentials
+    payload = verify_token(token)
+    
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    
+    # Get user from database
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+    
+    return user
+
+@router.get("/auth/profile")
+async def get_profile(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get current user's profile with person details and roles."""
+    # Get person details
+    person_result = await db.execute(
+        select(Person).where(Person.id == current_user.person_id)
+    )
+    person = person_result.scalar_one_or_none()
+    
+    # Get roles
+    roles_result = await db.execute(
+        select(Role)
+        .join(UserRole, Role.id == UserRole.role_id)
+        .where(UserRole.user_id == current_user.id)
+    )
+    roles = roles_result.scalars().all()
+    
+    return {
+        "user_id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "name": person.name if person else current_user.username,
+        "birth": str(person.birth) if person else None,
+        "sex": person.sex if person else None,
+        "phone_number": person.phone_number if person else None,
+        "created_at": current_user.created_at.isoformat(),
+        "roles": [role.name for role in roles]
+    }
+
+@router.get("/auth/check-username/{username}")
+async def check_username(username: str, db: AsyncSession = Depends(get_db)):
+    """Check if username is available."""
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+    return {"available": user is None}
+
+@router.get("/auth/check-email/{email}")
+async def check_email(email: str, db: AsyncSession = Depends(get_db)):
+    """Check if email is available."""
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    return {"available": user is None}
