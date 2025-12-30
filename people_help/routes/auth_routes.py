@@ -1,10 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, validator
 from datetime import timedelta
 import uuid
+import logging
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from ..config import get_db
 from ..utils.security import get_password_hash, verify_password, create_access_token, verify_token
 from ..models.user import User
@@ -12,8 +15,13 @@ from ..models.person import Person
 from ..models.role import Role
 from ..models.user_role import UserRole
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
+
+# Rate limiter for sensitive endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 MAX_PASSWORD_BYTES = 72  # bcrypt and PostgreSQL max bytes
 
@@ -59,8 +67,10 @@ class LoginRequest(BaseModel):
     password: str
 
 @router.post("/auth/register")
-async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     try:
+        logger.info(f"Registration attempt for username: {data.username}")
         # Check if username exists
         result = await db.execute(select(User).where(User.username == data.username))
         if result.scalar_one_or_none():
@@ -107,29 +117,38 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
         db.add(user_role)
         
         await db.commit()
-        
+        logger.info(f"User registered successfully: {user.username} (ID: {user.id})")
+
         return {
             "message": "User registered successfully",
             "user_id": user.id,
             "username": user.username
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Registration error for {data.username}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Registration failed")
 
 @router.post("/auth/login")
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
+    logger.info(f"Login attempt for username: {data.username}")
+
     # Find user
     result = await db.execute(select(User).where(User.username == data.username))
     user = result.scalar_one_or_none()
-    
+
     if not user:
+        logger.warning(f"Login failed: user not found - {data.username}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Truncate password if necessary before verifying
     password_to_verify = truncate_password_to_bytes(data.password)
     if not verify_password(password_to_verify, user.password_hash):
+        logger.warning(f"Login failed: invalid password - {data.username}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Get user roles
@@ -153,7 +172,9 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     # Get person info
     result = await db.execute(select(Person).where(Person.id == user.person_id))
     person = result.scalar_one_or_none()
-    
+
+    logger.info(f"Login successful for user: {user.username} (ID: {user.id})")
+
     return {
         "access_token": token,
         "token_type": "bearer",
