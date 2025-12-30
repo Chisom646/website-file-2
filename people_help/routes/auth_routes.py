@@ -14,6 +14,8 @@ from ..models.user import User
 from ..models.person import Person
 from ..models.role import Role
 from ..models.user_role import UserRole
+from ..i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
+from ..i18n.translator import get_language_name
 
 logger = logging.getLogger(__name__)
 
@@ -240,6 +242,7 @@ async def get_profile(
         "birth": str(person.birth) if person else None,
         "sex": person.sex if person else None,
         "phone_number": person.phone_number if person else None,
+        "language": current_user.language,
         "created_at": current_user.created_at.isoformat(),
         "roles": [role.name for role in roles]
     }
@@ -257,3 +260,45 @@ async def check_email(email: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
     return {"available": user is None}
+
+# Language Preference Endpoints
+
+class LanguageUpdateRequest(BaseModel):
+    language: str
+
+    @validator('language')
+    def validate_language(cls, v):
+        if v not in SUPPORTED_LANGUAGES:
+            raise ValueError(f"Language must be one of: {', '.join(SUPPORTED_LANGUAGES)}")
+        return v
+
+@router.get("/auth/languages")
+async def get_supported_languages():
+    """Get list of supported languages."""
+    return {
+        "languages": [
+            {"code": lang, "name": get_language_name(lang)}
+            for lang in SUPPORTED_LANGUAGES
+        ],
+        "default": DEFAULT_LANGUAGE
+    }
+
+@router.put("/auth/language")
+async def update_language_preference(
+    data: LanguageUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update user's language preference."""
+    logger.info(f"Updating language preference for user {current_user.username}: {data.language}")
+
+    current_user.language = data.language
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+
+    return {
+        "message": "Language preference updated",
+        "language": current_user.language,
+        "language_name": get_language_name(current_user.language)
+    }
